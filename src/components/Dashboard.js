@@ -412,7 +412,7 @@ const AddEvalForm = ({ onClose, onSave, orientees, loading }) => {
   return (
     <Modal onClose={onClose} title="Submit Evaluation" width="540px">
       <form onSubmit={e => { e.preventDefault(); onSave(f); }}>
-        <div style={{ marginBottom: '14px' }}><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Orientee *</label><select required value={f.orientee_id} onChange={e => setF({ ...f, orientee_id: e.target.value })} style={{ ...inputStyle, background: 'white' }}><option value="">Select...</option>{orientees.map(o => <option key={o.id} value={o.id}>{o.user?.full_name || o.temp_name} ({o.cert_level})</option>)}</select></div>
+        <div style={{ marginBottom: '14px' }}><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Orientee *</label><select required value={f.orientee_id} onChange={e => setF({ ...f, orientee_id: e.target.value })} style={{ ...inputStyle, background: 'white' }}><option value="">Select...</option>{orientees.filter(o => !o.is_archived).map(o => <option key={o.id} value={o.id}>{o.user?.full_name || o.temp_name} ({o.cert_level})</option>)}</select></div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '14px' }}>
           <div><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Date</label><input type="date" required value={f.shift_date} onChange={e => setF({ ...f, shift_date: e.target.value })} style={inputStyle} /></div>
           <div><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Shift</label><select value={f.shift_type} onChange={e => setF({ ...f, shift_type: e.target.value })} style={{ ...inputStyle, background: 'white' }}><option>Day</option><option>Night</option></select></div>
@@ -454,7 +454,7 @@ const AddTaskForm = ({ onClose, onSave, orientees, loading }) => {
       <form onSubmit={e => { e.preventDefault(); onSave(f); }}>
         <div style={{ marginBottom: '14px' }}><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Title *</label><input required value={f.title} onChange={e => setF({ ...f, title: e.target.value })} style={inputStyle} /></div>
         <div style={{ marginBottom: '14px' }}><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Description</label><textarea value={f.description} onChange={e => setF({ ...f, description: e.target.value })} rows={2} style={{ ...inputStyle, resize: 'vertical' }} /></div>
-        <div style={{ marginBottom: '14px' }}><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Assign To *</label><select required value={f.assigned_to} onChange={e => setF({ ...f, assigned_to: e.target.value })} style={{ ...inputStyle, background: 'white' }}><option value="">Select...</option>{orientees.map(o => <option key={o.id} value={o.id}>{o.user?.full_name || o.temp_name}</option>)}</select></div>
+        <div style={{ marginBottom: '14px' }}><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Assign To *</label><select required value={f.assigned_to} onChange={e => setF({ ...f, assigned_to: e.target.value })} style={{ ...inputStyle, background: 'white' }}><option value="">Select...</option>{orientees.filter(o => !o.is_archived).map(o => <option key={o.id} value={o.id}>{o.user?.full_name || o.temp_name}</option>)}</select></div>
         <div style={{ marginBottom: '20px' }}><label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: C.g[600], marginBottom: '6px' }}>Due Date</label><input type="date" value={f.due_date} onChange={e => setF({ ...f, due_date: e.target.value })} style={inputStyle} /></div>
         <div style={{ display: 'flex', gap: '10px' }}><Btn variant="secondary" onClick={onClose} style={{ flex: 1 }}>Cancel</Btn><Btn type="submit" loading={loading} style={{ flex: 1 }}>Create</Btn></div>
       </form>
@@ -569,7 +569,7 @@ const DashboardView = ({ orientees, stats, loading, onAdd, onSelect, role, myOri
       </div>
     );
   }
-  const active = orientees.filter(o => o.status !== 'cleared');
+  const active = orientees.filter(o => o.status !== 'cleared' && !o.is_archived);
   return (
     <div style={{ padding: '26px' }}>
       <h1 style={{ fontSize: '26px', fontWeight: '700', color: C.g[900], margin: '0 0 22px 0' }}>Dashboard</h1>
@@ -887,7 +887,7 @@ const RecordsView = ({ orientees, evaluations, tasks }) => {
               <div onClick={() => setExpanded(expanded === o.id ? null : o.id)} style={{ padding: '16px 20px', borderBottom: '1px solid ' + C.g[50], cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: C.g[100], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', color: C.g[600], fontSize: '13px' }}>{name.split(' ').map(n => n[0]).join('')}</div>
-                  <div><div style={{ fontWeight: '600', color: C.g[800], fontSize: '14px' }}>{name}</div><div style={{ fontSize: '12px', color: C.g[500] }}>{o.cert_level} • {statusLabel(o.status)}</div></div>
+                  <div><div style={{ fontWeight: '600', color: C.g[800], fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>{name}{o.is_archived && <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '500', background: C.g[200], color: C.g[600] }}>Archived</span>}</div><div style={{ fontSize: '12px', color: C.g[500] }}>{o.cert_level} • {statusLabel(o.status)}</div></div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                   <div style={{ textAlign: 'right' }}><div style={{ fontSize: '13px', fontWeight: '600', color: C.g[800] }}>{o.hours_completed}h</div><div style={{ fontSize: '10px', color: C.g[500] }}>hours</div></div>
@@ -1030,13 +1030,13 @@ const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRole, onDeleteO
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
       <div style={{ ...card, padding: '20px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: '600', color: C.g[800], margin: '0 0 16px 0' }}><Icons.Clock size={18} color={C.primary} style={{ marginRight: '8px', verticalAlign: 'middle' }} />Adjust Hours</h2>
-        {orientees.filter(o => o.status !== 'cleared').map(o => (
+        {orientees.filter(o => o.status !== 'cleared' && !o.is_archived).map(o => (
           <div key={o.id} style={{ padding: '12px 0', borderBottom: '1px solid ' + C.g[50], display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '14px', color: C.g[800] }}>{o.user?.full_name || o.temp_name}</span>
             <Btn onClick={() => onAdjustHours(o)} style={{ padding: '8px 14px', fontSize: '12px' }}><Icons.Sliders size={14} /> Adjust</Btn>
           </div>
         ))}
-        {orientees.filter(o => o.status !== 'cleared').length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: C.g[500] }}>No active orientees</div>}
+        {orientees.filter(o => o.status !== 'cleared' && !o.is_archived).length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: C.g[500] }}>No active orientees</div>}
       </div>
       <div style={{ ...card, padding: '20px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: '600', color: C.g[800], margin: '0 0 16px 0' }}><Icons.Users size={18} color={C.primary} style={{ marginRight: '8px', verticalAlign: 'middle' }} />User Roles</h2>
@@ -1051,7 +1051,7 @@ const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRole, onDeleteO
     <div style={{ ...card, padding: '20px', marginBottom: '20px' }}>
       <h2 style={{ fontSize: '16px', fontWeight: '600', color: C.g[800], margin: '0 0 16px 0' }}><Icons.Edit size={18} color={C.primary} style={{ marginRight: '8px', verticalAlign: 'middle' }} />Edit Orientees</h2>
       <p style={{ fontSize: '13px', color: C.g[500], margin: '0 0 16px 0' }}>Edit orientee information including name, email, certification, shift, lead FTO, and orientation book link.</p>
-      {orientees.length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: C.g[500] }}>No orientees</div> : orientees.map(o => {
+      {orientees.filter(o => !o.is_archived).length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: C.g[500] }}>No orientees</div> : orientees.filter(o => !o.is_archived).map(o => {
         const name = o.user?.full_name || o.temp_name || 'Unknown';
         return (
           <div key={o.id} style={{ padding: '12px 0', borderBottom: '1px solid ' + C.g[50], display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1068,9 +1068,9 @@ const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRole, onDeleteO
       })}
     </div>
     <div style={{ ...card, padding: '20px' }}>
-      <h2 style={{ fontSize: '16px', fontWeight: '600', color: C.g[800], margin: '0 0 16px 0' }}><Icons.Trash size={18} color={C.danger} style={{ marginRight: '8px', verticalAlign: 'middle' }} />Delete Orientees</h2>
-      <p style={{ fontSize: '13px', color: C.g[500], margin: '0 0 16px 0' }}>Remove orientee records with errors or duplicates. This will delete all associated evaluations and tasks.</p>
-      {orientees.length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: C.g[500] }}>No orientees</div> : orientees.map(o => {
+      <h2 style={{ fontSize: '16px', fontWeight: '600', color: C.g[800], margin: '0 0 16px 0' }}><Icons.Archive size={18} color={C.warning} style={{ marginRight: '8px', verticalAlign: 'middle' }} />Archive Orientees</h2>
+      <p style={{ fontSize: '13px', color: C.g[500], margin: '0 0 16px 0' }}>Archive orientees to hide them from active views. Their records will be preserved in the Records section.</p>
+      {orientees.filter(o => !o.is_archived).length === 0 ? <div style={{ padding: '20px', textAlign: 'center', color: C.g[500] }}>No orientees</div> : orientees.filter(o => !o.is_archived).map(o => {
         const name = o.user?.full_name || o.temp_name || 'Unknown';
         const email = o.user?.email || o.temp_email || 'No email';
         const linked = !!o.user_id;
@@ -1083,11 +1083,11 @@ const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRole, onDeleteO
                 <div style={{ fontSize: '11px', color: C.g[500] }}>{email} • {o.cert_level} • {linked ? <span style={{ color: C.success }}>Linked</span> : <span style={{ color: C.warning }}>Not linked</span>}</div>
               </div>
             </div>
-            <button 
-              onClick={() => showConfirm('Delete Orientee', `Are you sure you want to delete "${name}"? This will also delete all their evaluations and tasks. This cannot be undone.`, () => onDeleteOrientee(o.id))}
-              style={{ padding: '8px 14px', background: C.danger + '12', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '500', color: C.danger, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            <button
+              onClick={() => showConfirm('Archive Orientee', `Are you sure you want to archive "${name}"? They will be hidden from active views but their records will be preserved.`, () => onDeleteOrientee(o.id))}
+              style={{ padding: '8px 14px', background: C.warning + '12', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '500', color: C.warning, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <Icons.Trash size={14} /> Delete
+              <Icons.Archive size={14} /> Archive
             </button>
           </div>
         );

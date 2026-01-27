@@ -41,13 +41,9 @@ export const updateOrientee = async (id, updates) => {
 };
 
 export const deleteOrientee = async (id) => {
-  // Delete related records first (evaluations, tasks, training completions)
-  await supabase.from('evaluations').delete().eq('orientee_id', id);
-  await supabase.from('tasks').delete().eq('assigned_to', id);
-  await supabase.from('training_completions').delete().eq('orientee_id', id);
-  await supabase.from('fto_evaluations').delete().eq('orientee_id', id);
-  // Then delete the orientee
-  const { error } = await supabase.from('orientees').delete().eq('id', id);
+  // Soft delete - mark as archived instead of actually deleting
+  // This preserves all records (evaluations, tasks, etc.) for historical reference
+  const { error } = await supabase.from('orientees').update({ is_archived: true, archived_at: new Date().toISOString() }).eq('id', id);
   return { error };
 };
 
@@ -226,10 +222,11 @@ export const getUnreadCount = async (userId) => {
 };
 
 export const getDashboardStats = async () => {
-  const { data: orientees } = await supabase.from('orientees').select('status, hours_completed, total_hours, hours_adjustment');
-  const active = orientees?.filter(o => o.status !== 'cleared') || [];
-  const atRisk = orientees?.filter(o => o.status === 'at-risk' || o.status === 'extended') || [];
-  const pending = orientees?.filter(o => o.status === 'pending-clearance') || [];
+  const { data: orientees } = await supabase.from('orientees').select('status, hours_completed, total_hours, hours_adjustment, is_archived');
+  const nonArchived = orientees?.filter(o => !o.is_archived) || [];
+  const active = nonArchived.filter(o => o.status !== 'cleared');
+  const atRisk = nonArchived.filter(o => o.status === 'at-risk' || o.status === 'extended');
+  const pending = nonArchived.filter(o => o.status === 'pending-clearance');
   const avgProgress = active.length > 0 ? Math.round(active.reduce((acc, o) => {
     const totalHrs = (o.total_hours || 96) + (o.hours_adjustment || 0);
     return acc + ((o.hours_completed / totalHrs) * 100);
