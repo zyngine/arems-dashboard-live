@@ -46,9 +46,9 @@ const Btn = ({ children, variant = 'primary', loading, style, ...p }) => {
 
 const Sidebar = ({ view, setView, role, collapsed, setCollapsed, unreadMessages }) => {
   const items = [
-    { id: 'dashboard', label: 'Dashboard', icon: Icons.Home, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
+    { id: 'dashboard', label: 'Dashboard', icon: Icons.Home, roles: ['admin', 'fto', 'lead_fto', 'orientee', 'employee'] },
     { id: 'orientees', label: 'Orientees', icon: Icons.Users, roles: ['admin', 'fto', 'lead_fto'] },
-    { id: 'evaluations', label: 'Evaluations', icon: Icons.ClipboardCheck, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
+    { id: 'evaluations', label: 'Evaluations', icon: Icons.ClipboardCheck, roles: ['admin', 'fto', 'lead_fto', 'orientee', 'employee'] },
     { id: 'training', label: 'Training', icon: Icons.GraduationCap, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'tasks', label: 'Tasks', icon: Icons.ListTodo, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'messages', label: 'Messages', icon: Icons.MessageCircle, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
@@ -618,7 +618,7 @@ const EvaluationsView = ({ evaluations, orientees, role, myOrientee, onAdd, onAd
         <h1 style={{ fontSize: '26px', fontWeight: '700', color: C.g[900], margin: 0 }}>Evaluations</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
           {role === 'orientee' && myOrientee && <Btn onClick={onAddFTOEval} variant="secondary"><Icons.Star size={16} /> Rate Your FTO</Btn>}
-          {(role === 'fto' || role === 'lead_fto' || role === 'admin') && <Btn onClick={onAdd}><Icons.Plus size={16} /> New Evaluation</Btn>}
+          {(role === 'fto' || role === 'lead_fto' || role === 'admin' || role === 'employee') && <Btn onClick={onAdd}><Icons.Plus size={16} /> New Evaluation</Btn>}
         </div>
       </div>
       
@@ -1043,7 +1043,7 @@ const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRole, onDeleteO
         {profiles.map(p => (
           <div key={p.id} style={{ padding: '12px 0', borderBottom: '1px solid ' + C.g[50], display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div><div style={{ fontSize: '14px', fontWeight: '500', color: C.g[800] }}>{p.full_name}</div><div style={{ fontSize: '11px', color: C.g[500] }}>{p.email}</div></div>
-            <select value={p.role} onChange={e => onUpdateRole(p.id, e.target.value)} disabled={saving} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid ' + C.g[200], fontSize: '13px', background: 'white', fontWeight: '500', color: p.role === 'admin' ? C.danger : (p.role === 'fto' || p.role === 'lead_fto') ? C.primary : C.g[600] }}><option value="admin">Admin</option><option value="lead_fto">Lead FTO</option><option value="fto">FTO</option><option value="orientee">Orientee</option></select>
+            <select value={p.role} onChange={e => onUpdateRole(p.id, e.target.value)} disabled={saving} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid ' + C.g[200], fontSize: '13px', background: 'white', fontWeight: '500', color: p.role === 'admin' ? C.danger : (p.role === 'fto' || p.role === 'lead_fto' || p.role === 'employee') ? C.primary : C.g[600] }}><option value="admin">Admin</option><option value="lead_fto">Lead FTO</option><option value="fto">FTO</option><option value="orientee">Orientee</option><option value="employee">Employee</option></select>
           </div>
         ))}
       </div>
