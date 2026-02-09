@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { signIn, signUp } from '../lib/supabase';
-import { linkOrienteeByEmail } from '../lib/database';
+import { linkOrienteeByEmail, updateProfile } from '../lib/database';
 import { Icons } from './Icons';
 
 export default function Login({ onLogin }) {
@@ -36,10 +36,14 @@ export default function Login({ onLogin }) {
         });
         if (error) throw error;
         if (data?.user) {
+          // Set default role to employee (instead of admin)
+          await updateProfile(data.user.id, { role: 'employee' });
           // Try to link to existing orientee record by email
           const linkResult = await linkOrienteeByEmail(data.user.id, formData.email);
           console.log('Link result:', linkResult);
           if (linkResult.linked) {
+            // Update role to orientee since they're linked to an orientee record
+            await updateProfile(data.user.id, { role: 'orientee' });
             alert('Account created and linked to your orientee profile! You can now log in.');
           } else if (linkResult.reason === 'already_linked') {
             alert('Account created! Note: An orientee with this email was already linked to another account.');
