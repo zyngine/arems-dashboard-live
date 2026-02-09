@@ -562,10 +562,11 @@ const DashboardView = ({ orientees, stats, loading, onAdd, onSelect, role, myOri
         </div>
         <div style={{ ...card, padding: '22px', marginTop: '20px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '600', color: C.g[800], margin: '0 0 16px 0' }}>Phase Progress</h3>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
             {[1,2,3,4].map(p => (<div key={p} style={{ flex: 1, padding: '14px', borderRadius: '12px', background: ph >= p ? phases[p].color + '12' : C.g[50], border: ph === p ? '2px solid ' + phases[p].color : 'none' }}><div style={{ fontWeight: '600', color: ph >= p ? phases[p].color : C.g[400], fontSize: '13px' }}>Phase {p}</div><div style={{ fontSize: '12px', color: C.g[500] }}>{phases[p].name}</div></div>))}
           </div>
         </div>
+        {myOrientee.orientation_book_url && (          <div style={{ ...card, padding: '22px', marginTop: '20px' }}>            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>              <Icons.FileText size={20} color={C.primary} />              <h3 style={{ fontSize: '16px', fontWeight: '600', color: C.g[800], margin: 0 }}>Orientation Book</h3>            </div>            <a href={myOrientee.orientation_book_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 18px', background: C.primary + '12', color: C.primary, borderRadius: '10px', fontSize: '14px', fontWeight: '500', textDecoration: 'none' }}>              <Icons.ExternalLink size={16} /> Open Orientation Book            </a>          </div>        )}
       </div>
     );
   }
