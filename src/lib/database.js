@@ -36,8 +36,87 @@ export const createOrientee = async (orienteeData) => {
 };
 
 export const updateOrientee = async (id, updates) => {
+  // Detect status → 'cleared' transition so we can bump the lead FTO to the bottom of the queue.
+  let wasCleared = false;
+  let leadFtoId = null;
+  if (updates.status === 'cleared') {
+    const { data: prev } = await supabase.from('orientees').select('status, lead_fto_id').eq('id', id).single();
+    wasCleared = prev?.status === 'cleared';
+    leadFtoId = prev?.lead_fto_id || null;
+  }
+
   const { data, error } = await supabase.from('orientees').update(updates).eq('id', id).select().single();
+
+  if (!error && updates.status === 'cleared' && !wasCleared && leadFtoId) {
+    await moveFTOToBottom(leadFtoId);
+  }
+
   return { data, error };
+};
+
+// ---------- FTO rotation queue ----------
+
+export const getFTOQueue = async () => {
+  const { data: ftos, error: ftosError } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role, queue_position, avatar_url')
+    .in('role', ['lead_fto', 'fto'])
+    .order('queue_position', { ascending: true, nullsFirst: false })
+    .order('full_name', { ascending: true });
+  if (ftosError) return { data: null, error: ftosError };
+
+  const { data: orientees, error: orError } = await supabase
+    .from('orientees')
+    .select('id, cert_level, status, lead_fto_id, hours_completed, total_hours, hours_adjustment, temp_name, user:profiles!orientees_user_id_fkey(full_name)')
+    .eq('is_archived', false)
+    .neq('status', 'cleared');
+  if (orError) return { data: null, error: orError };
+
+  const byFto = {};
+  (orientees || []).forEach(o => {
+    if (!o.lead_fto_id) return;
+    if (!byFto[o.lead_fto_id]) byFto[o.lead_fto_id] = [];
+    byFto[o.lead_fto_id].push({
+      id: o.id,
+      name: o.user?.full_name || o.temp_name || 'Unnamed',
+      cert_level: o.cert_level,
+      status: o.status,
+    });
+  });
+
+  const withAssignments = (ftos || []).map(f => ({ ...f, active_orientees: byFto[f.id] || [] }));
+  return { data: withAssignments, error: null };
+};
+
+export const moveFTOToBottom = async (ftoId) => {
+  const { data: maxRow } = await supabase
+    .from('profiles')
+    .select('queue_position')
+    .in('role', ['lead_fto', 'fto'])
+    .order('queue_position', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .single();
+  const nextPos = (maxRow?.queue_position || 0) + 1;
+  const { error } = await supabase.from('profiles').update({ queue_position: nextPos }).eq('id', ftoId);
+  return { error };
+};
+
+export const swapFTOQueuePositions = async (idA, idB) => {
+  const { data: rows, error: fetchError } = await supabase
+    .from('profiles')
+    .select('id, queue_position')
+    .in('id', [idA, idB]);
+  if (fetchError || !rows || rows.length !== 2) return { error: fetchError || new Error('Could not load FTOs to swap') };
+  const a = rows.find(r => r.id === idA);
+  const b = rows.find(r => r.id === idB);
+  // Two-phase swap to avoid any confusion if a unique constraint is ever added later
+  const temp = -1 * (Date.now() % 1000000);
+  let { error: e1 } = await supabase.from('profiles').update({ queue_position: temp }).eq('id', idA);
+  if (e1) return { error: e1 };
+  let { error: e2 } = await supabase.from('profiles').update({ queue_position: a.queue_position }).eq('id', idB);
+  if (e2) return { error: e2 };
+  let { error: e3 } = await supabase.from('profiles').update({ queue_position: b.queue_position }).eq('id', idA);
+  return { error: e3 };
 };
 
 export const deleteOrientee = async (id) => {

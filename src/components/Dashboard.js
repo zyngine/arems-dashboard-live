@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { signOut } from '../lib/supabase';
 import * as db from '../lib/database';
 import { Icons } from './Icons';
+import FTOQueueView from './FTOQueueView';
 
 const C = { primary: '#1e40af', primaryDark: '#1a365d', accent: '#eab308', success: '#16a34a', warning: '#ea580c', danger: '#dc2626', g: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a' } };
 const card = { background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)', borderRadius: '18px', boxShadow: '0 2px 16px rgba(0,0,0,0.04)', border: '1px solid rgba(255,255,255,0.5)' };
@@ -53,6 +54,7 @@ const Sidebar = ({ view, setView, role, collapsed, setCollapsed, unreadMessages 
     { id: 'tasks', label: 'Tasks', icon: Icons.ListTodo, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'messages', label: 'Messages', icon: Icons.MessageCircle, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'fto-feedback', label: 'FTO Feedback', icon: Icons.ThumbsUp, roles: ['admin', 'fto', 'lead_fto'] },
+    { id: 'fto-queue', label: 'FTO Queue', icon: Icons.Clock, roles: ['admin', 'fto', 'lead_fto'] },
     { id: 'records', label: 'Records', icon: Icons.FileText, roles: ['admin'] },
     { id: 'admin', label: 'Admin', icon: Icons.Settings, roles: ['admin'] },
   ].filter(i => i.roles.includes(role));
@@ -1335,6 +1337,7 @@ export default function Dashboard({ user, onLogout }) {
         {view === 'tasks' && <TasksView role={role} tasks={tasks} myTasks={myTasks} orientees={orientees} onAdd={() => setModal('addTask')} onVerify={handleVerifyTask} loading={loading} showConfirm={showConfirm} />}
         {view === 'messages' && <MessagesView userId={user.id} profiles={profiles} onClearUnread={async () => { const { count } = await db.getUnreadCount(user.id); setUnreadMessages(count || 0); }} role={role} />}
         {view === 'fto-feedback' && <FTOFeedbackView role={role} userId={user.id} ftoEvaluations={ftoEvaluations} loading={loading} onSelectFTOEval={(ev) => { setSelectedFTOEval(ev); setModal('ftoEvalDetail'); }} />}
+        {view === 'fto-queue' && <FTOQueueView role={role} />}
         {view === 'records' && <RecordsView orientees={orientees} evaluations={evaluations} tasks={tasks} />}
         {view === 'admin' && <AdminView orientees={orientees} profiles={profiles} onAdjustHours={(o) => { setSelectedOrientee(o); setModal('adjustHours'); }} onUpdateRole={handleUpdateRole} onDeleteOrientee={handleDeleteOrientee} onEditOrientee={(o) => { setEditingOrientee(o); setModal('editOrientee'); }} saving={saving} showConfirm={showConfirm} />}
       </main>
