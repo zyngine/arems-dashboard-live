@@ -548,8 +548,15 @@ Create `supabase/migrations/0002_lock_role_column.sql`:
 -- handle_new_user() and link_orientee_by_email() are SECURITY DEFINER and run as the
 -- function owner, so they are unaffected by this revoke.
 
-revoke update (role) on public.profiles from authenticated;
-revoke update (role) on public.profiles from anon;
+-- NOTE: `revoke update (role) ...` does NOT work here. `authenticated` and `anon`
+-- hold TABLE-level UPDATE on profiles, and Postgres will not let a column-level
+-- REVOKE carve an exception out of a table-level grant -- the statement succeeds
+-- and changes nothing. Drop the table grant and re-grant the allowed columns.
+revoke update on public.profiles from authenticated;
+revoke update on public.profiles from anon;
+
+grant update (full_name, email, phone, avatar_url, queue_position, updated_at)
+  on public.profiles to authenticated;
 
 create or replace function public.set_user_roles(p_user_id uuid, p_roles text[])
 returns void
@@ -597,10 +604,13 @@ Expected: `Success. No rows returned.`
 - [ ] **Step 3: Verify the column is no longer writable**
 
 ```sql
-select has_column_privilege('authenticated', 'public.profiles', 'role', 'UPDATE');
+select
+  has_column_privilege('authenticated','public.profiles','role','UPDATE')           as role_writable,
+  has_column_privilege('authenticated','public.profiles','avatar_url','UPDATE')     as avatar_writable,
+  has_column_privilege('authenticated','public.profiles','queue_position','UPDATE') as queue_writable;
 ```
 
-Expected: `false`.
+Expected: `role_writable = false`, and both `avatar_writable` and `queue_writable` **true**. If either of the latter two is false, profile photo upload and the FTO rotation queue will start failing with a permission error — the grant list is too narrow.
 
 - [ ] **Step 4: Verify the RPC rejects a non-admin caller**
 
