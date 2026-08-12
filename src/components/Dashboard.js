@@ -5,6 +5,7 @@ import { Icons } from './Icons';
 import FTOQueueView from './FTOQueueView';
 import { primaryRole, ROLE_PRECEDENCE, ROLE_LABELS, CERT_LEVELS } from '../lib/roles';
 import { C, card } from './theme';
+import CompletionReport from './CompletionReport';
 
 const phases = { 1: { name: 'Familiarization', color: '#1e40af' }, 2: { name: 'Guided Participation', color: '#7c3aed' }, 3: { name: 'Independence', color: '#ea580c' }, 4: { name: 'Clearance', color: '#16a34a' } };
 const statusColor = s => ({ 'on-track': '#16a34a', 'at-risk': '#ea580c', 'extended': '#dc2626', 'pending-clearance': '#1e40af' }[s] || '#64748b');
@@ -51,6 +52,7 @@ const Sidebar = ({ view, setView, role, collapsed, setCollapsed, unreadMessages 
     { id: 'orientees', label: 'Orientees', icon: Icons.Users, roles: ['admin', 'fto', 'lead_fto'] },
     { id: 'evaluations', label: 'Evaluations', icon: Icons.ClipboardCheck, roles: ['admin', 'fto', 'lead_fto', 'orientee', 'employee'] },
     { id: 'training', label: 'Training', icon: Icons.GraduationCap, roles: ['admin', 'fto', 'lead_fto', 'orientee', 'employee'] },
+    { id: 'completions', label: 'Completions', icon: Icons.ClipboardCheck, roles: ['admin'] },
     { id: 'tasks', label: 'Tasks', icon: Icons.ListTodo, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'messages', label: 'Messages', icon: Icons.MessageCircle, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'fto-feedback', label: 'FTO Feedback', icon: Icons.ThumbsUp, roles: ['admin', 'fto', 'lead_fto'] },
@@ -1372,6 +1374,7 @@ export default function Dashboard({ user, onLogout }) {
         {view === 'orientees' && <DashboardView orientees={orientees} stats={stats} loading={loading} onAdd={() => setModal('addOrientee')} onSelect={(o) => { setSelectedOrientee(o); setModal('orienteeDetail'); }} role={role} myOrientee={myOrientee} recentMessages={recentMessages} onOpenMessages={() => setView('messages')} />}
         {view === 'evaluations' && <EvaluationsView evaluations={evaluations} orientees={orientees} role={role} myOrientee={myOrientee} onAdd={() => setModal('addEval')} onAddFTOEval={() => setModal('addFTOEval')} ftos={ftos} loading={loading} onSelectEval={(ev) => { setSelectedEvaluation(ev); setModal('evalDetail'); }} />}
         {view === 'training' && <TrainingView role={role} materials={materials} completions={completions} onAdd={() => { setEditingMaterial(null); setModal('addTraining'); }} onEdit={(m) => { setEditingMaterial(m); setModal('addTraining'); }} onComplete={handleCompleteTraining} loading={loading} showConfirm={showConfirm} />}
+        {view === 'completions' && <CompletionReport />}
         {view === 'tasks' && <TasksView role={role} tasks={tasks} myTasks={myTasks} orientees={orientees} onAdd={() => setModal('addTask')} onVerify={handleVerifyTask} loading={loading} showConfirm={showConfirm} />}
         {view === 'messages' && <MessagesView userId={user.id} profiles={profiles} onClearUnread={async () => { const { count } = await db.getUnreadCount(user.id); setUnreadMessages(count || 0); }} role={role} />}
         {view === 'fto-feedback' && <FTOFeedbackView role={role} userId={user.id} ftoEvaluations={ftoEvaluations} loading={loading} onSelectFTOEval={(ev) => { setSelectedFTOEval(ev); setModal('ftoEvalDetail'); }} />}
