@@ -660,7 +660,7 @@ const EvaluationsView = ({ evaluations, orientees, role, myOrientee, onAdd, onAd
   );
 };
 
-const TrainingView = ({ role, materials, completions, orienteeId, onAdd, onEdit, onComplete, loading, showConfirm }) => (
+const TrainingView = ({ role, materials, completions, onAdd, onEdit, onComplete, loading, showConfirm }) => (
   <div style={{ padding: '26px' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}><h1 style={{ fontSize: '26px', fontWeight: '700', color: C.g[900], margin: 0 }}>Training Library</h1>{role === 'admin' && <Btn onClick={() => onAdd()}><Icons.Plus size={16} /> Add Material</Btn>}</div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
@@ -1336,7 +1336,7 @@ export default function Dashboard({ user, onLogout }) {
         {view === 'dashboard' && <DashboardView orientees={orientees} stats={stats} loading={loading} onAdd={() => setModal('addOrientee')} onSelect={(o) => { setSelectedOrientee(o); setModal('orienteeDetail'); }} role={role} myOrientee={myOrientee} recentMessages={recentMessages} onOpenMessages={() => setView('messages')} />}
         {view === 'orientees' && <DashboardView orientees={orientees} stats={stats} loading={loading} onAdd={() => setModal('addOrientee')} onSelect={(o) => { setSelectedOrientee(o); setModal('orienteeDetail'); }} role={role} myOrientee={myOrientee} recentMessages={recentMessages} onOpenMessages={() => setView('messages')} />}
         {view === 'evaluations' && <EvaluationsView evaluations={evaluations} orientees={orientees} role={role} myOrientee={myOrientee} onAdd={() => setModal('addEval')} onAddFTOEval={() => setModal('addFTOEval')} ftos={ftos} loading={loading} onSelectEval={(ev) => { setSelectedEvaluation(ev); setModal('evalDetail'); }} />}
-        {view === 'training' && <TrainingView role={role} materials={materials} completions={completions} orienteeId={myOrientee?.id} onAdd={() => { setEditingMaterial(null); setModal('addTraining'); }} onEdit={(m) => { setEditingMaterial(m); setModal('addTraining'); }} onComplete={handleCompleteTraining} loading={loading} showConfirm={showConfirm} />}
+        {view === 'training' && <TrainingView role={role} materials={materials} completions={completions} onAdd={() => { setEditingMaterial(null); setModal('addTraining'); }} onEdit={(m) => { setEditingMaterial(m); setModal('addTraining'); }} onComplete={handleCompleteTraining} loading={loading} showConfirm={showConfirm} />}
         {view === 'tasks' && <TasksView role={role} tasks={tasks} myTasks={myTasks} orientees={orientees} onAdd={() => setModal('addTask')} onVerify={handleVerifyTask} loading={loading} showConfirm={showConfirm} />}
         {view === 'messages' && <MessagesView userId={user.id} profiles={profiles} onClearUnread={async () => { const { count } = await db.getUnreadCount(user.id); setUnreadMessages(count || 0); }} role={role} />}
         {view === 'fto-feedback' && <FTOFeedbackView role={role} userId={user.id} ftoEvaluations={ftoEvaluations} loading={loading} onSelectFTOEval={(ev) => { setSelectedFTOEval(ev); setModal('ftoEvalDetail'); }} />}
