@@ -35,7 +35,9 @@ it never replaces it.
 5. Training can be assigned to groups, not just individuals.
 6. Content can require a signed acknowledgment.
 7. Rosters export to CSV.
-8. The whole thing works well on a phone.
+8. An uploaded slide deck is presented one slide at a time, and the employee must click
+   through all of it before the test unlocks.
+9. The whole thing works well on a phone.
 
 ## 3. Non-goals
 
@@ -47,8 +49,11 @@ Explicitly out of scope, because the LMS already does them:
 - Migrating existing LMS course content
 - Replacing the LMS as system of record for its own courses
 
+Also out of scope: server-side `.pptx` → PDF conversion. Decks are uploaded as PDF, exported
+from PowerPoint. Reasoning in §8.1.
+
 Also out of scope for now: converting the FTO orientation process itself into a course
-(considered and deferred — see §11).
+(considered and deferred — see §12).
 
 ## 4. Identity model
 
@@ -138,6 +143,7 @@ create table courses (
   recurrence    text not null default 'none'
                 check (recurrence in ('none','annual','biennial')),
   is_published  boolean not null default false,
+  enforce_sequence boolean not null default true,
   created_by    uuid references profiles(id),
   created_at    timestamptz not null default now()
 );
@@ -146,11 +152,14 @@ create table course_items (
   id               uuid primary key default gen_random_uuid(),
   course_id        uuid not null references courses(id) on delete cascade,
   position         int  not null,
-  kind             text not null check (kind in ('material','attestation','quiz')),
+  kind             text not null check (kind in ('material','attestation','deck','quiz')),
   material_id      uuid references training_materials(id),
   attestation_text text,
+  deck_url         text,           -- Supabase Storage path to the PDF
+  deck_page_count  int,
   quiz_id          uuid,           -- FK added in Phase 3
-  unique (course_id, position)
+  unique (course_id, position),
+  check (kind <> 'deck' or (deck_url is not null and deck_page_count > 0))
 );
 ```
 
@@ -194,6 +203,7 @@ create table item_progress (
   completed_at           timestamptz,
   attestation_signature  text,
   attestation_signed_at  timestamptz,
+  pages_viewed           int[] not null default '{}',   -- deck items only
   unique (enrollment_id, course_item_id)
 );
 ```
@@ -226,7 +236,53 @@ On a course with `recurrence` set, completing an enrollment schedules the next o
 `completed_at + interval`. Recurrence math lives in a pure, tested function — off-by-one-year
 errors here are invisible until an audit.
 
-## 8. Tests
+## 8. Slide decks
+
+An admin uploads a slide deck and the employee clicks through it one slide at a time before
+the course will let them reach the test.
+
+### 8.1 Format: PDF
+
+Decks are uploaded as **PDF**, exported from PowerPoint (`File → Export → PDF`). The browser
+renders them page by page with `pdf.js`.
+
+Accepting `.pptx` directly was considered and rejected. A `.pptx` is a zip of XML, and
+rendering one faithfully requires either an external conversion API or a self-hosted
+LibreOffice container — Supabase Edge Functions run Deno and cannot do it natively. That is a
+paid dependency, a new API key, a queue, and a new class of upload failure, bought in exchange
+for removing one click from the admin's workflow. PDF costs nothing, renders offline, and has
+perfect fidelity because PowerPoint itself did the rendering.
+
+Consequence to accept: the admin must export before uploading. If that friction ever becomes a
+real complaint, `.pptx` auto-conversion can be layered on top without changing anything below —
+the PDF renderer is needed either way.
+
+The PDF is stored in Supabase Storage. `deck_page_count` is read from the document at upload
+time and stored, so progress can be evaluated without loading the file.
+
+### 8.2 Progression
+
+- One slide per screen. Forward, back, and a progress indicator.
+- On mobile: swipe, with large touch targets.
+- `item_progress.pages_viewed` accumulates each page number actually displayed.
+- The deck item completes when `pages_viewed` covers every page — **not** when the last page is
+  reached. Otherwise jumping straight to the final slide would mark the deck done.
+- Progress is written as the employee advances, so closing the browser mid-deck loses nothing.
+
+### 8.3 Sequential gating
+
+When `courses.enforce_sequence` is true (the default), a course item cannot be started until
+every item before it is complete.
+
+**This is enforced in the database, not in the UI.** A disabled "Start test" button stops
+nobody — the quiz rows are one client call away. So `start_quiz_attempt` verifies that all
+preceding `course_items` for that enrollment are complete and refuses otherwise. The disabled
+button is a courtesy; the function is the control.
+
+This is the same principle as §9.1: any rule that matters is enforced where the client cannot
+reach it.
+
+## 9. Tests
 
 ```sql
 create table quizzes (
@@ -251,7 +307,7 @@ create table questions (
   prompt      text not null,
   points      int  not null default 1,
   explanation text,
-  accepted_answers text[],          -- short_answer only; see §8.1
+  accepted_answers text[],          -- short_answer only; see §9.1
   check (kind <> 'short_answer' or accepted_answers is not null)
 );
 
@@ -286,7 +342,7 @@ create table attempt_answers (
 );
 ```
 
-### 8.1 Answers must never reach the client ungraded
+### 9.1 Answers must never reach the client ungraded
 
 Supabase returns whatever RLS permits. If `question_options.is_correct` is readable by the
 person taking the test, they can read the answer key out of devtools or the network tab.
@@ -308,13 +364,13 @@ A quiz belongs to exactly one course, and a `course_items` row of kind `quiz` ma
 reference a quiz whose `course_id` matches that item's course. Enforced by a composite foreign
 key on `(quiz_id, course_id)` so the two paths cannot disagree.
 
-### 8.2 Attempt rules
+### 9.2 Attempt rules
 
 Failing consumes an attempt and permits a retake while `attempt_number < max_attempts`. Failure
 does **not** force re-consuming the content. When attempts are exhausted, the enrollment stays
 incomplete and is surfaced to admins on the roster.
 
-## 9. Certificates
+## 10. Certificates
 
 ```sql
 create table certificates (
@@ -354,9 +410,9 @@ certificate number, and a signature block.
 issue date, course title, recipient name, and validity. It exposes nothing else about the
 person. This lets an inspector or another agency confirm a certificate without an account.
 
-## 10. Cross-cutting
+## 11. Cross-cutting
 
-### 10.1 Roster and CSV export
+### 11.1 Roster and CSV export
 
 The roster view for a course lists every enrollment with name, cert level, roles, assigned
 date, completion date, quiz score, attempts used, and certificate number. Filterable by
@@ -366,7 +422,7 @@ Export is generated client-side — no dependency. The CSV writer handles the ca
 naive implementations: embedded commas, embedded double quotes, newlines inside fields, and a
 leading `=`/`+`/`-`/`@` (spreadsheet formula injection).
 
-### 10.2 Mobile
+### 11.2 Mobile
 
 Current layout is a fixed `250px` sidebar with inline pixel styling and no breakpoints
 anywhere in the codebase.
@@ -377,9 +433,12 @@ anywhere in the codebase.
 - Test-taking is designed mobile-first: one question per screen, large touch targets,
   progress indicator, and answers persisted per question so a dropped connection or a
   backgrounded browser does not lose an in-progress attempt.
+- Deck viewing is mobile-first for the same reason: one slide per screen, swipe to advance,
+  pinch to zoom, and page progress written as it happens. A crew member reading a protocol
+  deck in the bay is the expected case, not the exception.
 - Existing views are made responsive only where the work already requires touching them.
 
-### 10.3 File layout
+### 11.3 File layout
 
 ```
 src/lib/roles.js                    hasRole, primaryRole, canAssign
@@ -392,6 +451,7 @@ src/components/ui/                  useMediaQuery, responsive primitives
 src/components/training/CourseList.jsx
 src/components/training/CourseDetail.jsx
 src/components/training/CourseEditor.jsx
+src/components/training/DeckPlayer.jsx
 src/components/training/QuizBuilder.jsx
 src/components/training/QuizPlayer.jsx
 src/components/training/RosterView.jsx
@@ -401,7 +461,7 @@ src/components/training/CertificateView.jsx
 `Dashboard.js` is 115 KB with every view inlined. New surfaces go in their own files. Existing
 code is extracted only where the work already requires modifying it. No speculative refactor.
 
-### 10.4 Error handling
+### 11.4 Error handling
 
 The codebase currently uses `alert()` for errors and `console.log` for diagnostics. New code:
 
@@ -411,7 +471,7 @@ The codebase currently uses `alert()` for errors and `console.log` for diagnosti
   after a completed test is the worst failure mode in this system.
 - Assignment expansion is transactional: a partially expanded audience must not be possible.
 
-### 10.5 Testing
+### 11.5 Testing
 
 `package.json` has no `test` script. `react-scripts` bundles Jest, so adding one is a
 single line.
@@ -426,16 +486,28 @@ Coverage targets the pure logic where mistakes are expensive and silent:
 | `hasRole` / `primaryRole` | Governs access to everything |
 | CSV escaping | Silent data corruption in exports |
 | Certificate numbering | Uniqueness and format stability |
+| Deck completion (`pages_viewed` → complete) | A gap here lets someone skip required content |
+| Sequential gating predicate | Same — it is the lock on the test |
 
 UI is not unit-tested.
 
-### 10.6 Security note (pre-existing, out of scope for these phases)
+### 11.6 Dependencies
+
+The project currently depends only on React, ReactDOM, `@supabase/supabase-js`, and
+`react-scripts`. This design adds exactly one runtime dependency:
+
+- **`pdfjs-dist`** — renders deck PDFs page by page in the browser.
+
+Everything else (CSV export, certificate rendering, responsive layout) is built without new
+packages. No new hosted service, API key, or recurring cost is introduced.
+
+### 11.7 Security note (pre-existing, out of scope for these phases)
 
 `src/lib/database.js:364` contains a hardcoded Resend API key in a public repository. It is
 tracked separately: the key must be revoked and email sending moved into a Supabase Edge
 Function. Client-side code cannot hold a secret, so an environment variable is not a fix.
 
-## 11. Deferred
+## 12. Deferred
 
 Converting FTO orientation into a course type — making the 96-hour process, skill check-offs,
 and evaluations all courses — is the correct eventual shape. It is deferred because it rewrites
@@ -447,15 +519,15 @@ expiration tracking with 90/60/30-day reminders, in-person class attendance rost
 reusable question bank shared across tests, and remediation flows that re-require content
 after a failed attempt.
 
-## 12. Phases
+## 13. Phases
 
 Each phase is independently useful and shippable.
 
 | Phase | Delivers | Rationale |
 |---|---|---|
 | **1** | `cert_level` on profiles, multi-role via `user_roles`, `hasRole()`, `training_completions` re-based to `user_id`, Training visible to `employee`, completion report + CSV export | Nothing else can work until a non-orientee can complete something |
-| **2** | Courses, course items, group assignment, enrollments, roster view, attestation/acknowledgment, responsive shell | Assignment and roster both require `enrollments`, so they land with courses — not before |
-| **3** | Test builder, mobile test player, server-side grading | Largest subsystem; needs a stable course model beneath it |
+| **2** | Courses, course items, slide decks (PDF upload + click-through player), group assignment, enrollments, roster view, attestation/acknowledgment, responsive shell | Assignment and roster both require `enrollments`, so they land with courses — not before. Decks are a course item kind, so they belong here too |
+| **3** | Test builder, mobile test player, server-side grading, sequential gating enforcement | Largest subsystem; needs a stable course model beneath it. Gating lands here because the thing being gated is the test |
 | **4** | Certificates, CEU hours, public verification page | Only meaningful once a test can be passed |
 
 Group assignment, the per-class roster, and courses are one unit of work. They were originally
