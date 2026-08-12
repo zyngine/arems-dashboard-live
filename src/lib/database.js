@@ -1,18 +1,57 @@
 import { supabase } from './supabase';
 
+// Flattens the joined user_roles rows into a plain array so callers can use
+// hasRole(profile, 'fto') without knowing the join shape.
+const withRoles = (row) => {
+  if (!row) return row;
+  const { user_roles, ...rest } = row;
+  return { ...rest, roles: (user_roles || []).map(r => r.role) };
+};
+
 export const getUserProfile = async (userId) => {
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-  return { data, error };
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*, user_roles(role)')
+    .eq('id', userId)
+    .single();
+  return { data: withRoles(data), error };
 };
 
 export const getAllProfiles = async () => {
-  const { data, error } = await supabase.from('profiles').select('*').order('full_name');
-  return { data, error };
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*, user_roles(role)')
+    .order('full_name');
+  return { data: (data || []).map(withRoles), error };
 };
 
 export const updateProfile = async (userId, updates) => {
-  const { data, error } = await supabase.from('profiles').update(updates).eq('id', userId).select().single();
-  return { data, error };
+  // role and cert_level are not writable on this table; use setUserRoles /
+  // setUserCertLevel. Strip them so a stray caller gets a no-op, not a 403.
+  const { role, cert_level, roles, user_roles, ...safe } = updates;
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(safe)
+    .eq('id', userId)
+    .select('*, user_roles(role)')
+    .single();
+  return { data: withRoles(data), error };
+};
+
+export const setUserRoles = async (userId, roles) => {
+  const { error } = await supabase.rpc('set_user_roles', {
+    p_user_id: userId,
+    p_roles: roles,
+  });
+  return { error };
+};
+
+export const setUserCertLevel = async (userId, certLevel) => {
+  const { error } = await supabase.rpc('set_user_cert_level', {
+    p_user_id: userId,
+    p_cert_level: certLevel,
+  });
+  return { error };
 };
 
 export const getFTOs = async () => {
@@ -208,13 +247,42 @@ export const updateTrainingMaterial = async (id, updates) => {
   return { data, error };
 };
 
-export const getTrainingCompletions = async (orienteeId) => {
-  const { data, error } = await supabase.from('training_completions').select('*').eq('orientee_id', orienteeId);
+export const getTrainingCompletions = async (userId) => {
+  const { data, error } = await supabase
+    .from('training_completions')
+    .select('*')
+    .eq('user_id', userId);
   return { data, error };
 };
 
-export const markTrainingComplete = async (orienteeId, materialId) => {
-  const { data, error } = await supabase.from('training_completions').insert([{ orientee_id: orienteeId, material_id: materialId, completed_at: new Date().toISOString() }]).select().single();
+// orienteeId is optional and only set when the completion happened inside the FTO
+// process. Completions for ordinary employees carry user_id alone.
+export const markTrainingComplete = async (userId, materialId, orienteeId = null) => {
+  const { data, error } = await supabase
+    .from('training_completions')
+    .insert([{
+      user_id: userId,
+      material_id: materialId,
+      orientee_id: orienteeId,
+      completed_at: new Date().toISOString(),
+    }])
+    .select()
+    .single();
+  return { data, error };
+};
+
+// Every completion across the organisation, newest first, for the admin report.
+export const getCompletionReport = async () => {
+  const { data, error } = await supabase
+    .from('training_completions')
+    .select(`
+      id,
+      completed_at,
+      material:training_materials(id, title, type),
+      user:profiles!training_completions_user_id_fkey(id, full_name, email, role, cert_level, shift)
+    `)
+    .not('user_id', 'is', null)
+    .order('completed_at', { ascending: false });
   return { data, error };
 };
 
