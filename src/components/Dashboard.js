@@ -3,6 +3,7 @@ import { signOut } from '../lib/supabase';
 import * as db from '../lib/database';
 import { Icons } from './Icons';
 import FTOQueueView from './FTOQueueView';
+import { primaryRole, ROLE_PRECEDENCE, ROLE_LABELS, CERT_LEVELS } from '../lib/roles';
 
 const C = { primary: '#1e40af', primaryDark: '#1a365d', accent: '#eab308', success: '#16a34a', warning: '#ea580c', danger: '#dc2626', g: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a' } };
 const card = { background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)', borderRadius: '18px', boxShadow: '0 2px 16px rgba(0,0,0,0.04)', border: '1px solid rgba(255,255,255,0.5)' };
@@ -50,7 +51,7 @@ const Sidebar = ({ view, setView, role, collapsed, setCollapsed, unreadMessages 
     { id: 'dashboard', label: 'Dashboard', icon: Icons.Home, roles: ['admin', 'fto', 'lead_fto', 'orientee', 'employee'] },
     { id: 'orientees', label: 'Orientees', icon: Icons.Users, roles: ['admin', 'fto', 'lead_fto'] },
     { id: 'evaluations', label: 'Evaluations', icon: Icons.ClipboardCheck, roles: ['admin', 'fto', 'lead_fto', 'orientee', 'employee'] },
-    { id: 'training', label: 'Training', icon: Icons.GraduationCap, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
+    { id: 'training', label: 'Training', icon: Icons.GraduationCap, roles: ['admin', 'fto', 'lead_fto', 'orientee', 'employee'] },
     { id: 'tasks', label: 'Tasks', icon: Icons.ListTodo, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'messages', label: 'Messages', icon: Icons.MessageCircle, roles: ['admin', 'fto', 'lead_fto', 'orientee'] },
     { id: 'fto-feedback', label: 'FTO Feedback', icon: Icons.ThumbsUp, roles: ['admin', 'fto', 'lead_fto'] },
@@ -674,7 +675,7 @@ const TrainingView = ({ role, materials, completions, orienteeId, onAdd, onEdit,
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
               <a href={m.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '10px', borderRadius: '10px', background: C.g[50], color: C.g[700], textDecoration: 'none', fontSize: '13px', fontWeight: '500', textAlign: 'center' }}>Open</a>
-              {role === 'orientee' && orienteeId && !done && <button onClick={() => showConfirm('Complete Training', 'Are you sure you want to mark "' + m.title + '" as completed?', () => onComplete(m.id))} style={{ padding: '10px 16px', borderRadius: '10px', background: C.success, color: 'white', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Mark Complete</button>}
+              {!done && <button onClick={() => showConfirm('Complete Training', 'Are you sure you want to mark "' + m.title + '" as completed?', () => onComplete(m.id))} style={{ padding: '10px 16px', borderRadius: '10px', background: C.success, color: 'white', border: 'none', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Mark Complete</button>}
               {done && <span style={{ padding: '10px 16px', borderRadius: '10px', background: C.success + '12', color: C.success, fontSize: '13px', fontWeight: '600' }}>✓ Completed</span>}
             </div>
           </div>
@@ -1170,14 +1171,16 @@ export default function Dashboard({ user, onLogout }) {
         } catch (e) { console.log('Messages load error', e); }
       }
       
+      // Completions are per-user now, so every role loads them, not just orientees.
+      const { data: mc } = await db.getTrainingCompletions(user.id);
+      setCompletions(mc || []);
+
       if (pr.data?.role === 'orientee') {
         const { data: mo } = await db.getOrienteeByUserId(user.id);
         setMyOrientee(mo);
         if (mo) {
           const { data: mt } = await db.getTasksByOrientee(mo.id);
-          const { data: mc } = await db.getTrainingCompletions(mo.id);
           setMyTasks(mt || []);
-          setCompletions(mc || []);
         }
       }
     } catch (e) { console.error(e); }
@@ -1261,9 +1264,9 @@ export default function Dashboard({ user, onLogout }) {
   };
 
   const handleCompleteTraining = async (materialId) => {
-    if (!myOrientee) return;
-    await db.markTrainingComplete(myOrientee.id, materialId);
-    const { data: mc } = await db.getTrainingCompletions(myOrientee.id);
+    const { error } = await db.markTrainingComplete(user.id, materialId, myOrientee?.id || null);
+    if (error) { alert('Error: ' + error.message); return; }
+    const { data: mc } = await db.getTrainingCompletions(user.id);
     setCompletions(mc || []);
     setConfirmDialog(null);
   };
@@ -1319,7 +1322,7 @@ export default function Dashboard({ user, onLogout }) {
   };
 
   const handleLogout = async () => { await signOut(); onLogout(); };
-  const role = profile?.role || 'orientee';
+  const role = primaryRole(profile?.roles) || profile?.role || 'employee';
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(145deg, ' + C.g[50] + ', ' + C.g[100] + ')' }}>
