@@ -3,7 +3,7 @@ import { signOut } from '../lib/supabase';
 import * as db from '../lib/database';
 import { Icons } from './Icons';
 import FTOQueueView from './FTOQueueView';
-import { primaryRole, ROLE_PRECEDENCE, ROLE_LABELS, CERT_LEVELS } from '../lib/roles';
+import { hasRole, primaryRole, ROLE_PRECEDENCE, ROLE_LABELS, CERT_LEVELS } from '../lib/roles';
 import { C, card } from './theme';
 import CompletionReport from './CompletionReport';
 
@@ -1206,7 +1206,9 @@ export default function Dashboard({ user, onLogout }) {
       const { data: mc } = await db.getTrainingCompletions(user.id);
       setCompletions(mc || []);
 
-      if (pr.data?.role === 'orientee') {
+      // hasRole, not the derived primary role: someone with ['fto','orientee']
+      // resolves to 'fto' and would never load their own orientee record.
+      if (hasRole(pr.data, 'orientee')) {
         const { data: mo } = await db.getOrienteeByUserId(user.id);
         setMyOrientee(mo);
         if (mo) {

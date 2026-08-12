@@ -134,13 +134,17 @@ export const getFTOQueue = async () => {
 };
 
 export const moveFTOToBottom = async (ftoId) => {
+  // Must match getFTOQueue's population. Filtering profiles.role here would compute
+  // the bottom over a different set than the queue displays, so an admin who also
+  // holds the fto role is invisible to the max and two people end up tied.
+  // .maybeSingle() rather than .single(): an empty result is not an error here.
   const { data: maxRow } = await supabase
     .from('profiles')
-    .select('queue_position')
-    .in('role', ['lead_fto', 'fto'])
+    .select('queue_position, user_roles!inner(role)')
+    .in('user_roles.role', ['lead_fto', 'fto'])
     .order('queue_position', { ascending: false, nullsFirst: false })
     .limit(1)
-    .single();
+    .maybeSingle();
   const nextPos = (maxRow?.queue_position || 0) + 1;
   const { error } = await supabase.from('profiles').update({ queue_position: nextPos }).eq('id', ftoId);
   return { error };
