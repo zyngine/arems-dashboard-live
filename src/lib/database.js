@@ -360,85 +360,20 @@ export const uploadProfilePicture = async (userId, file) => {
 };
 
 // Send evaluation email notification via Resend
+// The Resend key lives in the send-evaluation-email edge function, never in this
+// bundle. Create React App inlines env vars into the JavaScript it ships, so a
+// REACT_APP_* variable would only hide the key from git -- every visitor's browser
+// would still receive it. The function holds it as a server-side secret.
 export const sendEvaluationEmail = async ({ to, toName, orienteeName, evaluatorName, shiftDate, rating }) => {
-  const RESEND_API_KEY = 're_YXxb6Ki7_CDA68WN4jKwa8GrZ5oAENFff';
-  
-  const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
-  const formattedDate = new Date(shiftDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; padding: 30px; border-radius: 12px 12px 0 0; }
-    .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
-    .rating { font-size: 24px; color: #eab308; }
-    .detail { margin: 10px 0; padding: 12px; background: white; border-radius: 8px; }
-    .label { font-size: 12px; color: #64748b; text-transform: uppercase; }
-    .value { font-size: 16px; font-weight: 600; color: #1e293b; }
-    .footer { text-align: center; margin-top: 20px; color: #94a3b8; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1 style="margin:0;">New Evaluation Submitted</h1>
-      <p style="margin:10px 0 0 0; opacity:0.9;">Adams Regional EMS Training</p>
-    </div>
-    <div class="content">
-      <p>Hi ${toName},</p>
-      <p>A new evaluation has been submitted for your orientee:</p>
-      
-      <div class="detail">
-        <div class="label">Orientee</div>
-        <div class="value">${orienteeName}</div>
-      </div>
-      
-      <div class="detail">
-        <div class="label">Evaluated By</div>
-        <div class="value">${evaluatorName}</div>
-      </div>
-      
-      <div class="detail">
-        <div class="label">Shift Date</div>
-        <div class="value">${formattedDate}</div>
-      </div>
-      
-      <div class="detail">
-        <div class="label">Overall Rating</div>
-        <div class="value rating">${stars}</div>
-      </div>
-      
-      <p style="margin-top:20px;">Log in to the AREMS dashboard to view the full evaluation details.</p>
-    </div>
-    <div class="footer">
-      <p>Adams Regional EMS - Orientee Tracking System</p>
-    </div>
-  </div>
-</body>
-</html>`;
-
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: 'AREMS Notifications <noreply@arems.net>',
-        to: [to],
-        subject: `New Evaluation for ${orienteeName}`,
-        html: html,
-      }),
+    const { data, error } = await supabase.functions.invoke('send-evaluation-email', {
+      body: { to, toName, orienteeName, evaluatorName, shiftDate, rating },
     });
-    
-    const data = await response.json();
-    console.log('Email sent:', data);
-    return { success: response.ok, data };
+    if (error) {
+      console.error('Email send error:', error);
+      return { success: false, error };
+    }
+    return { success: true, data };
   } catch (error) {
     console.error('Email send error:', error);
     return { success: false, error };
