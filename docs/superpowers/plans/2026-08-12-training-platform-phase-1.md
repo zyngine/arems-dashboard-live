@@ -54,7 +54,11 @@ In PostgreSQL, when an UPDATE policy omits `WITH CHECK`, **the `USING` expressio
 
 **Consequence: any of the 50 authenticated users can set their own `role` to `'admin'` with a single client-side call, and the app's sidebar and admin screens gate purely on that value.**
 
-Tasks 4 and 5 close this by making `user_roles` the only writable path and revoking the column. They must ship together — see the note in Task 5.
+**Status: an interim hotfix is already live.** On 2026-08-12 a `BEFORE UPDATE` trigger `profiles_guard_role` was applied to the production database, rejecting role changes by non-admins. The hole is closed today.
+
+That hotfix is temporary and Task 4 drops it, because it blocks the `sync_primary_role` trigger. Task 5 replaces it with a column-privilege revoke, which is stronger — a `REVOKE UPDATE (role)` cannot be bypassed by any client-side call, whereas a trigger only rejects what it thinks to check.
+
+**Apply Tasks 4 and 5 back to back.** Between them the hole is briefly reopened.
 
 ---
 
@@ -400,11 +404,23 @@ git commit -m "feat: add CSV export helpers with formula-injection guard"
 **Files:**
 - Create: `supabase/migrations/0001_user_roles.sql`
 
+**An interim hotfix is already applied to the live database and this migration must remove it.** A trigger named `profiles_guard_role` (function `public.prevent_role_change`) was applied on 2026-08-12 to block role self-escalation until Task 5 lands. It rejects any UPDATE that changes `profiles.role` when `auth.uid()` is not an admin.
+
+That guard is incompatible with the `sync_primary_role` trigger this task adds. `sync_primary_role` updates `profiles.role` in response to `user_roles` changes, and it runs in whatever session triggered it — so when a newly-registered orientee calls `link_orientee_by_email`, the sync would fire with `auth.uid()` set to the orientee, the guard would reject it, and account linking would break.
+
+Dropping it reopens the escalation hole until Task 5 revokes the column. **Apply Tasks 4 and 5 back to back in one sitting.** Do not stop between them.
+
 - [ ] **Step 1: Write the migration**
 
 Create `supabase/migrations/0001_user_roles.sql`:
 
 ```sql
+-- Remove the interim hotfix from 2026-08-12. It blocks the sync trigger below.
+-- Task 5 (0002_lock_role_column.sql) replaces it with a column-privilege revoke,
+-- which cannot be bypassed and does not interfere with SECURITY DEFINER functions.
+drop trigger if exists profiles_guard_role on public.profiles;
+drop function if exists public.prevent_role_change();
+
 -- user_roles becomes the source of truth for what a person is allowed to do.
 -- profiles.role is retained as a derived "primary role" so existing code keeps working.
 
