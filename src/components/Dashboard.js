@@ -1028,7 +1028,7 @@ const FTOEvalDetailModal = ({ evaluation, onClose }) => {
   );
 };
 
-const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRole, onDeleteOrientee, onEditOrientee, saving, showConfirm }) => (
+const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRoles, onUpdateCertLevel, onDeleteOrientee, onEditOrientee, saving, showConfirm }) => (
   <div style={{ padding: '26px' }}>
     <h1 style={{ fontSize: '26px', fontWeight: '700', color: C.g[900], margin: '0 0 22px 0' }}>Admin Panel</h1>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
@@ -1047,7 +1047,37 @@ const AdminView = ({ orientees, profiles, onAdjustHours, onUpdateRole, onDeleteO
         {profiles.map(p => (
           <div key={p.id} style={{ padding: '12px 0', borderBottom: '1px solid ' + C.g[50], display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div><div style={{ fontSize: '14px', fontWeight: '500', color: C.g[800] }}>{p.full_name}</div><div style={{ fontSize: '11px', color: C.g[500] }}>{p.email}</div></div>
-            <select value={p.role} onChange={e => onUpdateRole(p.id, e.target.value)} disabled={saving} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid ' + C.g[200], fontSize: '13px', background: 'white', fontWeight: '500', color: p.role === 'admin' ? C.danger : (p.role === 'fto' || p.role === 'lead_fto' || p.role === 'employee') ? C.primary : C.g[600] }}><option value="admin">Admin</option><option value="lead_fto">Lead FTO</option><option value="fto">FTO</option><option value="orientee">Orientee</option><option value="employee">Employee</option></select>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {ROLE_PRECEDENCE.map(r => {
+                  const held = p.roles || (p.role ? [p.role] : []);
+                  const on = held.includes(r);
+                  return (
+                    <button
+                      key={r}
+                      disabled={saving}
+                      onClick={() => onUpdateRoles(p.id, on ? held.filter(x => x !== r) : [...held, r])}
+                      style={{
+                        padding: '6px 11px', borderRadius: '999px', fontSize: '12px', fontWeight: '600',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                        border: '1px solid ' + (on ? C.primary : C.g[200]),
+                        background: on ? C.primary : 'white',
+                        color: on ? 'white' : C.g[500],
+                      }}
+                    >{ROLE_LABELS[r]}</button>
+                  );
+                })}
+              </div>
+              <select
+                value={p.cert_level || ''}
+                disabled={saving}
+                onChange={e => onUpdateCertLevel(p.id, e.target.value || null)}
+                style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid ' + C.g[200], fontSize: '13px', background: 'white', fontWeight: '500', color: C.g[700] }}
+              >
+                <option value="">No cert level</option>
+                {CERT_LEVELS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
           </div>
         ))}
       </div>
@@ -1280,13 +1310,19 @@ export default function Dashboard({ user, onLogout }) {
     setSaving(false);
   };
 
-  const handleUpdateRole = async (userId, role) => {
+  const handleUpdateRoles = async (userId, roles) => {
+    if (roles.length === 0) { alert('A user must have at least one role.'); return; }
     setSaving(true);
-    const { data, error } = await db.updateProfile(userId, { role });
-    if (error) {
-      console.error('Failed to update role:', error);
-      alert('Failed to update role: ' + error.message);
-    }
+    const { error } = await db.setUserRoles(userId, roles);
+    if (error) alert('Failed to update roles: ' + error.message);
+    await load(true);
+    setSaving(false);
+  };
+
+  const handleUpdateCertLevel = async (userId, certLevel) => {
+    setSaving(true);
+    const { error } = await db.setUserCertLevel(userId, certLevel);
+    if (error) alert('Failed to update certification level: ' + error.message);
     await load(true);
     setSaving(false);
   };
@@ -1342,7 +1378,7 @@ export default function Dashboard({ user, onLogout }) {
         {view === 'fto-feedback' && <FTOFeedbackView role={role} userId={user.id} ftoEvaluations={ftoEvaluations} loading={loading} onSelectFTOEval={(ev) => { setSelectedFTOEval(ev); setModal('ftoEvalDetail'); }} />}
         {view === 'fto-queue' && <FTOQueueView role={role} />}
         {view === 'records' && <RecordsView orientees={orientees} evaluations={evaluations} tasks={tasks} />}
-        {view === 'admin' && <AdminView orientees={orientees} profiles={profiles} onAdjustHours={(o) => { setSelectedOrientee(o); setModal('adjustHours'); }} onUpdateRole={handleUpdateRole} onDeleteOrientee={handleDeleteOrientee} onEditOrientee={(o) => { setEditingOrientee(o); setModal('editOrientee'); }} saving={saving} showConfirm={showConfirm} />}
+        {view === 'admin' && <AdminView orientees={orientees} profiles={profiles} onAdjustHours={(o) => { setSelectedOrientee(o); setModal('adjustHours'); }} onUpdateRoles={handleUpdateRoles} onUpdateCertLevel={handleUpdateCertLevel} onDeleteOrientee={handleDeleteOrientee} onEditOrientee={(o) => { setEditingOrientee(o); setModal('editOrientee'); }} saving={saving} showConfirm={showConfirm} />}
       </main>
 
       {modal === 'addOrientee' && <AddOrienteeForm onClose={() => setModal(null)} onSave={handleAddOrientee} ftos={ftos} loading={saving} />}
