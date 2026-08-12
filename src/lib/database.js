@@ -96,13 +96,19 @@ export const updateOrientee = async (id, updates) => {
 // ---------- FTO rotation queue ----------
 
 export const getFTOQueue = async () => {
-  const { data: ftos, error: ftosError } = await supabase
+  // Filter on user_roles, not profiles.role. profiles.role is only the DERIVED
+  // primary role, so an admin who also holds the fto role resolves to 'admin'
+  // and would silently drop out of the rotation queue.
+  const { data: ftoRows, error: ftosError } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role, queue_position, avatar_url')
-    .in('role', ['lead_fto', 'fto'])
+    .select('id, full_name, email, role, queue_position, avatar_url, user_roles!inner(role)')
+    .in('user_roles.role', ['lead_fto', 'fto'])
     .order('queue_position', { ascending: true, nullsFirst: false })
     .order('full_name', { ascending: true });
   if (ftosError) return { data: null, error: ftosError };
+
+  // Drop the join rows; callers only need the profile fields.
+  const ftos = (ftoRows || []).map(({ user_roles, ...rest }) => rest);
 
   const { data: orientees, error: orError } = await supabase
     .from('orientees')
