@@ -3,7 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// createClient throws on an empty URL, which used to white-screen the whole app
+// when the env vars were missing. Fall back to an inert placeholder; App.js shows
+// a setup screen instead of ever calling it (see CONFIGURED in ./backend).
+export const supabase = createClient(supabaseUrl || 'http://localhost:54321', supabaseAnonKey || 'not-configured');
 
 export const signUp = async (email, password, userData) => {
   const { data, error } = await supabase.auth.signUp({ email, password, options: { data: userData } });

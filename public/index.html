@@ -1,5 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>AREMS Training</title></head>
-<body><div id="root"></div></body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#091a36" />
+  <meta name="description" content="Adams Regional EMS field training and staff education." />
+  <link rel="icon" href="%PUBLIC_URL%/logo.jpg" />
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.jpg" />
+  <title>AREMS Training</title>
+  <script>
+    // Apply the saved or system theme before first paint so there is no flash.
+    try {
+      var t = localStorage.getItem('arems-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <noscript>AREMS Training needs JavaScript to run.</noscript>
+  <div id="root"></div>
+</body>
 </html>

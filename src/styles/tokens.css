@@ -1,0 +1,106 @@
+/* Design tokens. Brand colours are sampled from the Adams Regional EMS patch:
+   royal blue and signal yellow. Yellow is an accent only — never body text. */
+:root {
+  --font: 'Public Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --bg: #f3f5f9;
+  --surface: #ffffff;
+  --surface-2: #f6f8fb;
+  --surface-3: #ebeff5;
+  --border: #e1e6ee;
+  --border-strong: #c9d2de;
+  --text: #0e1a2b;
+  --text-2: #45546a;
+  --text-3: #74829a;
+
+  --brand: #0b4aa2;
+  --brand-hover: #083b84;
+  --brand-fg: #0b4aa2;
+  --brand-soft: #e6eefb;
+  --on-brand: #ffffff;
+  --accent: #f1d90a;
+  --accent-ink: #4d4300;
+  --accent-soft: #fdf8cf;
+
+  --success: #15803d;
+  --success-soft: #e4f5ea;
+  --warning: #b8540a;
+  --warning-soft: #fcefe0;
+  --danger: #c22a2a;
+  --danger-soft: #fce9e9;
+  --violet: #6a3fcf;
+  --violet-soft: #efe9fc;
+  --star: #e0a800;
+
+  --p1: #0b4aa2;
+  --p2: #6a3fcf;
+  --p3: #c2610c;
+  --p4: #15803d;
+
+  --side-bg: #091a36;
+  --side-bg-2: #0d2247;
+  --side-border: rgba(255, 255, 255, 0.07);
+  --side-text: #a3b4cf;
+  --side-text-strong: #ffffff;
+  --side-hover: rgba(255, 255, 255, 0.06);
+  --side-active: rgba(255, 255, 255, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(14, 26, 43, 0.05);
+  --shadow: 0 1px 2px rgba(14, 26, 43, 0.04), 0 4px 16px rgba(14, 26, 43, 0.05);
+  --shadow-lg: 0 12px 40px rgba(14, 26, 43, 0.18);
+  --overlay: rgba(9, 20, 40, 0.5);
+
+  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 16px;
+  --side-w: 248px;
+  --side-w-collapsed: 68px;
+  --top-h: 60px;
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0a111e;
+  --surface: #101a2c;
+  --surface-2: #152137;
+  --surface-3: #1b2a44;
+  --border: #20304b;
+  --border-strong: #2f4263;
+  --text: #e7edf7;
+  --text-2: #a9b6ca;
+  --text-3: #76879f;
+
+  --brand: #2a6be0;
+  --brand-hover: #3c7af0;
+  --brand-fg: #86b4ff;
+  --brand-soft: #14294d;
+  --accent: #f1d90a;
+  --accent-ink: #f6e558;
+  --accent-soft: #332e08;
+
+  --success: #46c078;
+  --success-soft: #11301f;
+  --warning: #f0a04f;
+  --warning-soft: #38230f;
+  --danger: #f27878;
+  --danger-soft: #3b1717;
+  --violet: #a98bf5;
+  --violet-soft: #251c44;
+  --star: #f1d90a;
+
+  --p1: #5a98ff;
+  --p2: #a98bf5;
+  --p3: #f0a04f;
+  --p4: #46c078;
+
+  --side-bg: #070e1a;
+  --side-bg-2: #0a1424;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+}

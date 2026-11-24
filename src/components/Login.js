@@ -1,161 +1,132 @@
 import React, { useState } from 'react';
-import { signIn, signUp } from '../lib/supabase';
-import { linkOrienteeByEmail, updateProfile } from '../lib/database';
+import { signIn, signUp, db, DEMO, DEMO_LOGINS, demoSignIn } from '../lib/backend';
 import { Icons } from './Icons';
+import { Button } from './ui';
+
+const EMPTY = { email: '', password: '', confirmPassword: '', fullName: '', phone: '' };
+
+const POINTS = [
+  { icon: Icons.TrendingUp, text: 'Track every orientee from first shift to clearance' },
+  { icon: Icons.ClipboardCheck, text: 'Shift evaluations filed from the truck, on any phone' },
+  { icon: Icons.GraduationCap, text: 'One training library for the whole agency' },
+];
+
+const IconInput = ({ icon: I, reveal, onReveal, ...p }) => (
+  <div className="input-icon" style={{ marginBottom: 12 }}>
+    <I size={17} />
+    <input className="input" {...p} />
+    {onReveal && (
+      <button type="button" className="reveal" onClick={onReveal} aria-label={reveal ? 'Hide password' : 'Show password'}>
+        {reveal ? <Icons.EyeOff size={17} /> : <Icons.Eye size={17} />}
+      </button>
+    )}
+  </div>
+);
 
 export default function Login({ onLogin }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '', fullName: '', phone: '' });
+  const [notice, setNotice] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [form, setForm] = useState(EMPTY);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError('');
-  };
+  const change = (e) => { setForm({ ...form, [e.target.name]: e.target.value }); setError(''); };
+  const switchMode = (next) => { setIsSignUp(next); setError(''); setForm(f => ({ ...EMPTY, email: f.email })); };
 
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    setError(''); setNotice('');
+    if (isSignUp && form.password !== form.confirmPassword) return setError('Passwords do not match.');
+    if (isSignUp && form.password.length < 6) return setError('Password must be at least 6 characters.');
     setLoading(true);
-    setError('');
     try {
       if (isSignUp) {
-        if (formData.password !== formData.confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
-        if (formData.password.length < 6) {
-          setError('Password must be at least 6 characters');
-          setLoading(false);
-          return;
-        }
-        const { data, error } = await signUp(formData.email, formData.password, {
-          full_name: formData.fullName,
-          phone: formData.phone
-        });
+        const { data, error } = await signUp(form.email, form.password, { full_name: form.fullName, phone: form.phone });
         if (error) throw error;
         if (data?.user) {
-          // Set default role to employee (instead of admin)
-          await updateProfile(data.user.id, { role: 'employee' });
-          // Try to link to existing orientee record by email
-          const linkResult = await linkOrienteeByEmail(data.user.id, formData.email);
-          console.log('Link result:', linkResult);
-          if (linkResult.linked) {
-            // Update role to orientee since they're linked to an orientee record
-            await updateProfile(data.user.id, { role: 'orientee' });
-            alert('Account created and linked to your orientee profile! You can now log in.');
-          } else if (linkResult.reason === 'already_linked') {
-            alert('Account created! Note: An orientee with this email was already linked to another account.');
-          } else if (linkResult.reason === 'update_failed') {
-            alert('Account created! Note: Could not auto-link to orientee profile. Error: ' + (linkResult.error?.message || 'Unknown'));
-          } else {
-            alert('Account created! You can now log in.');
-          }
-          setIsSignUp(false);
+          // New accounts start as plain employees; the role itself is assigned server-side.
+          // If an admin already created an orientee record for this email, attach it.
+          const link = await db.linkOrienteeByEmail(data.user.id, form.email);
+          if (link.linked) setNotice('Account created and linked to your orientee profile. Sign in to continue.');
+          else if (link.reason === 'already_linked') setNotice('Account created. An orientee record with this email is already linked to another account — ask an admin to check it.');
+          else if (link.reason === 'update_failed') setNotice('Account created, but it could not be linked to your orientee profile. Ask an admin to link it.');
+          else setNotice('Account created. Sign in to continue.');
+          switchMode(false);
         }
       } else {
-        const { data, error } = await signIn(formData.email, formData.password);
+        const { data, error } = await signIn(form.email, form.password);
         if (error) throw error;
         if (data?.user) onLogin(data.user);
       }
     } catch (err) {
-      setError(err.message || 'An error occurred');
+      setError(err.message || 'Something went wrong. Try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '14px 14px 14px 48px',
-    borderRadius: '14px',
-    border: '1px solid #e2e8f0',
-    fontSize: '15px',
-    boxSizing: 'border-box',
-    background: 'rgba(255,255,255,0.9)'
-  };
-
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(145deg, #1a365d 0%, #2d3748 50%, #1a202c 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }}>
-      <div style={{ width: '100%', maxWidth: '420px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ width: '100px', height: '100px', margin: '0 auto 20px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.3)' }}>
-            <img src="/logo.jpg" alt="Adams Regional EMS" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-          <h1 style={{ color: 'white', fontSize: '26px', fontWeight: '700', margin: '0 0 6px 0' }}>Adams Regional EMS</h1>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '15px', margin: 0 }}>Training Management System</p>
+    <div className="auth">
+      <div className="auth-hero">
+        <div className="row" style={{ gap: 12 }}>
+          <img className="auth-logo" src="/logo.jpg" alt="" />
+          <div><div style={{ fontWeight: 700, fontSize: 16 }}>Adams Regional EMS</div><div className="side-brand-sub">Training</div></div>
         </div>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <h1>Ready crews start here.</h1>
+          <p>Field training, evaluations and continuing education for everyone at Adams Regional — in one place.</p>
+          <div className="auth-points">
+            {POINTS.map(p => <div className="auth-point" key={p.text}><span><p.icon size={16} /></span>{p.text}</div>)}
+          </div>
+        </div>
+        <div className="tiny" style={{ color: 'rgba(255,255,255,0.5)' }}>© {new Date().getFullYear()} Adams Regional EMS</div>
+      </div>
 
-        <div style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)', borderRadius: '24px', padding: '36px', boxShadow: '0 25px 60px rgba(0,0,0,0.25)' }}>
-          <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#1a202c', margin: '0 0 6px 0', textAlign: 'center' }}>
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
-          </h2>
-          <p style={{ color: '#64748b', textAlign: 'center', margin: '0 0 28px 0', fontSize: '14px' }}>
-            {isSignUp ? 'Sign up to get started' : 'Sign in to continue'}
-          </p>
+      <div className="auth-panel">
+        <div className="auth-form">
+          <img className="auth-logo" src="/logo.jpg" alt="Adams Regional EMS" style={{ marginBottom: 18 }} />
+          <h2 className="page-title">{isSignUp ? 'Create your account' : 'Sign in'}</h2>
+          <p className="page-sub" style={{ marginBottom: 22 }}>{isSignUp ? 'Use your agency email so your records link up.' : 'Welcome back. Enter your details to continue.'}</p>
 
-          {error && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '12px 14px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Icons.AlertCircle size={18} color="#dc2626" />
-              <span style={{ color: '#991b1b', fontSize: '13px' }}>{error}</span>
-            </div>
+          {error && <div className="callout tone-danger" role="alert" style={{ marginBottom: 14 }}><Icons.AlertCircle size={17} /><div>{error}</div></div>}
+          {notice && <div className="callout tone-success" role="status" style={{ marginBottom: 14 }}><Icons.CheckCircle size={17} /><div>{notice}</div></div>}
+
+          {DEMO ? (
+            <>
+              <div className="callout tone-accent" style={{ marginBottom: 14 }}><Icons.Info size={17} /><div>Demo mode with sample data. Nothing is saved. Pick a role to look around.</div></div>
+              <div className="demo-roles">
+                {DEMO_LOGINS.map(r => (
+                  <button key={r.id} type="button" className="card clickable" style={{ padding: 14 }} onClick={() => onLogin(demoSignIn(r.id))}>
+                    <div className="strong">{r.label}</div><div className="tiny muted">{r.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <form onSubmit={submit}>
+              {isSignUp && (
+                <>
+                  <IconInput icon={Icons.User} type="text" name="fullName" value={form.fullName} onChange={change} required placeholder="Full name" autoComplete="name" aria-label="Full name" />
+                  <IconInput icon={Icons.Phone} type="tel" name="phone" value={form.phone} onChange={change} placeholder="Phone (optional)" autoComplete="tel" aria-label="Phone" />
+                </>
+              )}
+              <IconInput icon={Icons.Mail} type="email" name="email" value={form.email} onChange={change} required placeholder="Email address" autoComplete="email" aria-label="Email address" />
+              <IconInput icon={Icons.Lock} type={reveal ? 'text' : 'password'} name="password" value={form.password} onChange={change} required placeholder="Password"
+                autoComplete={isSignUp ? 'new-password' : 'current-password'} aria-label="Password" reveal={reveal} onReveal={() => setReveal(!reveal)} />
+              {isSignUp && <IconInput icon={Icons.Lock} type={reveal ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={change} required placeholder="Confirm password" autoComplete="new-password" aria-label="Confirm password" />}
+              <Button type="submit" block loading={loading} style={{ height: 44, marginTop: 6 }}>{isSignUp ? 'Create account' : 'Sign in'}</Button>
+            </form>
           )}
 
-          <form onSubmit={handleSubmit}>
-            {isSignUp && (
-              <>
-                <div style={{ marginBottom: '16px', position: 'relative' }}>
-                  <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}>
-                    <Icons.User size={20} color="#94a3b8" />
-                  </div>
-                  <input type="text" name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="Full Name" style={inputStyle} />
-                </div>
-                <div style={{ marginBottom: '16px', position: 'relative' }}>
-                  <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}>
-                    <Icons.Phone size={20} color="#94a3b8" />
-                  </div>
-                  <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone Number" style={inputStyle} />
-                </div>
-              </>
-            )}
-            <div style={{ marginBottom: '16px', position: 'relative' }}>
-              <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}>
-                <Icons.Mail size={20} color="#94a3b8" />
-              </div>
-              <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="Email Address" style={inputStyle} />
-            </div>
-            <div style={{ marginBottom: '16px', position: 'relative' }}>
-              <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}>
-                <Icons.Lock size={20} color="#94a3b8" />
-              </div>
-              <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder="Password" style={inputStyle} />
-            </div>
-            {isSignUp && (
-              <div style={{ marginBottom: '20px', position: 'relative' }}>
-                <div style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}>
-                  <Icons.Lock size={20} color="#94a3b8" />
-                </div>
-                <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} required placeholder="Confirm Password" style={inputStyle} />
-              </div>
-            )}
-            <button type="submit" disabled={loading} style={{ width: '100%', padding: '16px', background: loading ? '#94a3b8' : 'linear-gradient(135deg, #1e40af, #1a365d)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: loading ? 'none' : '0 6px 20px rgba(30,64,175,0.3)' }}>
-              {loading && <Icons.Loader size={20} style={{ animation: 'spin 1s linear infinite' }} />}
-              {loading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
-            </button>
-          </form>
-          <div style={{ marginTop: '24px', textAlign: 'center', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
-            <span style={{ color: '#64748b', fontSize: '14px' }}>
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-            </span>
-            <button onClick={() => { setIsSignUp(!isSignUp); setError(''); setFormData({ email: '', password: '', confirmPassword: '', fullName: '', phone: '' }); }} style={{ background: 'none', border: 'none', color: '#1e40af', fontSize: '14px', fontWeight: '600', cursor: 'pointer', marginLeft: '6px' }}>
-              {isSignUp ? 'Sign In' : 'Sign Up'}
-            </button>
-          </div>
+          {!DEMO && (
+            <p className="soft" style={{ marginTop: 20, textAlign: 'center' }}>
+              {isSignUp ? 'Already have an account?' : 'New to AREMS Training?'}{' '}
+              <button type="button" className="link-btn" onClick={() => switchMode(!isSignUp)}>{isSignUp ? 'Sign in' : 'Create an account'}</button>
+            </p>
+          )}
         </div>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', textAlign: 'center', marginTop: '24px' }}>Adams Regional EMS © 2024</p>
       </div>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } input:focus { border-color: #1e40af; outline: none; box-shadow: 0 0 0 3px rgba(30,64,175,0.15); }`}</style>
     </div>
   );
 }

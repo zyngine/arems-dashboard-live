@@ -117,4 +117,31 @@ export const Icons = {
   ),
 };
 
+// Stroke icons added with the redesign. Same 24px grid and props as the set above.
+const stroke = (children) => ({ size = 24, color = 'currentColor', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>{children}</svg>
+);
+
+Object.assign(Icons, {
+  Menu: stroke(<><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" /></>),
+  Sun: stroke(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></>),
+  Moon: stroke(<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />),
+  Download: stroke(<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" /></>),
+  Check: stroke(<path d="M20 6 9 17l-5-5" />),
+  ChevronRight: stroke(<path d="m9 18 6-6-6-6" />),
+  ChevronUp: stroke(<path d="m18 15-6-6-6 6" />),
+  ArrowLeft: stroke(<><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></>),
+  ArrowDownToLine: stroke(<><path d="M12 17V3" /><path d="m6 11 6 6 6-6" /><path d="M19 21H5" /></>),
+  Eye: stroke(<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>),
+  EyeOff: stroke(<><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><path d="m2 2 20 20" /></>),
+  Refresh: stroke(<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></>),
+  Grid: stroke(<><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></>),
+  Rows: stroke(<><path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h18" /></>),
+  Info: stroke(<><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></>),
+  Shield: stroke(<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />),
+  Presentation: stroke(<><path d="M2 3h20" /><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" /><path d="m7 21 5-5 5 5" /></>),
+  Activity: stroke(<path d="M22 12h-4l-3 9L9 3l-3 9H2" />),
+  Inbox: stroke(<><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></>),
+});
+
 export default Icons;
